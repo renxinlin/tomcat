@@ -1,0 +1,6 @@
+digester是Sax解析的封装
+主要用来解析xml
+
+例如: tomcat根据server.xml的配置启动加载Server.xml
+
+这个模块不做翻译，读者有兴趣自行了解Sax以及digester如何解析xml
