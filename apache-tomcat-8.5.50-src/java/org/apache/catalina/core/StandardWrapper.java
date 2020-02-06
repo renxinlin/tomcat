@@ -985,6 +985,7 @@ public class StandardWrapper extends ContainerBase
      */
     @Override
     public synchronized void load() throws ServletException {
+        // 创建servlet实例
         instance = loadServlet();
 
         if (!instanceInitialized) {
@@ -1065,7 +1066,7 @@ public class StandardWrapper extends ContainerBase
                 throw new ServletException
                     (sm.getString("standardWrapper.instantiate", servletClass), e);
             }
-
+            // 获取MultipartConfig注解 完成 multipart/form-data请求的控制处理配置 参见该注解的具体参数 包含请求最大字节数等等控制
             if (multipartConfigElement == null) {
                 MultipartConfig annotation =
                         servlet.getClass().getAnnotation(MultipartConfig.class);
@@ -1090,7 +1091,7 @@ public class StandardWrapper extends ContainerBase
                 }
                 singleThreadModel = true;
             }
-
+            // 调用servlet的init方法
             initServlet(servlet);
 
             fireContainerEvent("load", this);

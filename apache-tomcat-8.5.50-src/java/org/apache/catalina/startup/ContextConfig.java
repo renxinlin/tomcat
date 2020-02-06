@@ -115,6 +115,34 @@ import org.xml.sax.SAXParseException;
  *
  * @author Craig R. McClanahan
  */
+
+/**
+ * AFTER_INIT_EVENT    该事件合并不同优先级下的几个context，并以最高优先级为第一选择
+ * BEFORE_START_EVENT 在context启动之前触发 主要是docbase属性更新
+ *
+ * 最重要的监听事件
+ *  CONFIGURE_START_EVENT 解析web.xml 并且创建wapper filter ServletContextListener等一系列web容器相关对象
+ * 优先级 低          高
+ * SERVER.XML >  conf /engine / host 下的 CONTEXT > web META-INF/context.xml
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ * 接下来的部分比较重要
+ * servlet规范简介 web应用程序部署可以来自于
+ * WEB-INF/web.xml
+ *
+ * web-fragment.xml
+ *
+ *javax.servlet.ServletContainerInitializer [基于注解后 spring的默认实现是org.springframework.web.SpringServletContainerInitializer]
+ *
+ *
+ */
 public class ContextConfig implements LifecycleListener {
 
     private static final Log log = LogFactory.getLog(ContextConfig.class);

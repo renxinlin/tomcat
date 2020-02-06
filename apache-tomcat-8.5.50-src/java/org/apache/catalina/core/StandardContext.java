@@ -144,6 +144,15 @@ import org.apache.tomcat.util.security.PrivilegedSetTccl;
  * @author Craig R. McClanahan
  * @author Remy Maucherat
  */
+
+/**
+ * host只是负责创建并启动context而web容器的具体加载过程则是context自己完成的
+ *
+ * 需要了解的是之前的容器都是只tomcat容器
+ * 到了context我们就需要涉及web容器 servlet规范等
+ * 参见【tomcat-web容器静态设计.png】
+ * 一个context 要包含 wrapper applicationContext listener filter classloader 等等
+ */
 public class StandardContext extends ContainerBase
         implements Context, NotificationEmitter {
 
@@ -2273,6 +2282,7 @@ public class StandardContext extends ContainerBase
     @Override
     public ServletContext getServletContext() {
         if (context == null) {
+            // ServletContext的实现类是ApplicationContext
             context = new ApplicationContext(this);
             if (altDDName != null)
                 context.setAttribute(Globals.ALT_DD_ATTR,altDDName);
@@ -4908,6 +4918,17 @@ public class StandardContext extends ContainerBase
      * @exception LifecycleException if this component detects a fatal error
      *  that prevents this component from being used
      */
+    /**
+     * 加载web容器 注意是web容器而不是tomcat容器
+     *
+     *
+     *  这个类的作用很重要：【职责也十分复杂】
+     *  其中servlet filter listener 都是在这里创建
+     *  而servlet还要contextconfig的配合来完成web.xml中配置的servlet，请求映射 filter的相关配置解析
+     *
+     *
+     * @throws LifecycleException
+     */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
 
@@ -4915,6 +4936,7 @@ public class StandardContext extends ContainerBase
             log.debug("Starting " + getBaseName());
 
         // Send j2ee.state.starting notification
+        // 发布正在启动的JMX通知 ，这样可以通过NotificationListener 来监听web应用程序的启动
         if (this.getObjectName() != null) {
             Notification notification = new Notification("j2ee.state.starting",
                     this.getObjectName(), sequenceNumber.getAndIncrement());
@@ -4926,7 +4948,7 @@ public class StandardContext extends ContainerBase
 
         // Currently this is effectively a NO-OP but needs to be called to
         // ensure the NamingResources follows the correct lifecycle
-        // 启动命名空间资源
+        // 启动命名空间资源 也就是JNDI资源
         if (namingResources != null) {
             namingResources.start();
         }
@@ -4938,8 +4960,9 @@ public class StandardContext extends ContainerBase
         if (getResources() == null) {   // (1) Required by Loader
             if (log.isDebugEnabled())
                 log.debug("Configuring default Resources");
-
+            // WebResourceRoot tomcat8后新增接口 【维护了web应用所有的资源集合 包含class文件 jar 以及其他资源文件】
             try {
+                // StandardRoot 是 WebResourceRoot 的实现
                 setResources(new StandardRoot(this));
             } catch (IllegalArgumentException e) {
                 log.error(sm.getString("standardContext.resourcesInit"), e);
@@ -4947,10 +4970,19 @@ public class StandardContext extends ContainerBase
             }
         }
         if (ok) {
-            // 资源启动
+            // 资源启动 开始加载资源
+            /**
+             * webresourcesroot按照分类将资源分为
+             * pre
+             * main 也就是web应用目录文件 WEB-INF/classes ,lib
+             * jar
+             * post
+             * 对应context.xml的标签如下
+             * PreResources   JarResources   PostResources
+             */
             resourcesStart();
         }
-
+        // 创建应用类加载器
         if (getLoader() == null) {
             WebappLoader webappLoader = new WebappLoader(getParentClassLoader());
             webappLoader.setDelegate(getDelegate());
@@ -4958,14 +4990,17 @@ public class StandardContext extends ContainerBase
         }
 
         // An explicit cookie processor hasn't been specified; use the default
+        // 设置cookie处理器
         if (cookieProcessor == null) {
             cookieProcessor = new Rfc6265CookieProcessor();
         }
 
         // Initialize character set mapper
+        // 设置字符集映射 主要根据Locale获取字符串编码
         getCharsetMapper();
 
         // Validate required extensions
+        // 检测依赖扩展性完整点 自行参见servlet规范
         boolean dependencyCheck = true;
         try {
             dependencyCheck = ExtensionValidator.validateApplication
@@ -4986,7 +5021,7 @@ public class StandardContext extends ContainerBase
             && (useNamingProperty.equals("false"))) {
             useNaming = false;
         }
-
+        // 部分配置
         if (ok && isUseNaming()) {
             if (getNamingContextListener() == null) {
                 NamingContextListener ncl = new NamingContextListener();
@@ -5063,6 +5098,11 @@ public class StandardContext extends ContainerBase
                 // 发出生命周期事件
                 // Notify our interested LifecycleListeners
                 // 交给ContextConfig处理
+                // ContextConfig 监听该事件完成servlet的创建
+                //////////////////////////////////////////////////////////////////
+                ///////// 注意 这之后servletContext已经建立
+                //////////////////////////////////////////////////////////////////
+
                 fireLifecycleEvent(Lifecycle.CONFIGURE_START_EVENT, null);
 
                 // 启动最后的standardwrapper
@@ -5075,11 +5115,13 @@ public class StandardContext extends ContainerBase
 
                 // Start the Valves in our pipeline (including the basic),
                 // if any
+                // 启动context维护的 pipeline
                 if (pipeline instanceof Lifecycle) {
                     ((Lifecycle) pipeline).start();
                 }
 
                 // Acquire clustered manager
+                // 创建会话管理器
                 Manager contextManager = null;
                 Manager manager = getManager();
                 if (manager == null) {
@@ -5115,17 +5157,18 @@ public class StandardContext extends ContainerBase
                     getCluster().registerManager(manager);
                 }
             }
-
+            // 创建会话管理器完毕
             if (!getConfigured()) {
                 log.error(sm.getString("standardContext.configurationFail"));
                 ok = false;
             }
 
             // We put the resources into the servlet context
+            // 将webresourcesroot添加到Servletcontext
             if (ok)
                 getServletContext().setAttribute
                     (Globals.RESOURCES_ATTR, getResources());
-
+            // 创建实例管理器 用于创建对象servlet filter等等
             if (ok ) {
                 if (getInstanceManager() == null) {
                     javax.naming.Context context = null;
@@ -5143,6 +5186,7 @@ public class StandardContext extends ContainerBase
             }
 
             // Create context attributes that will be required
+            // 将jar包扫描器添加到ServletContext
             if (ok) {
                 getServletContext().setAttribute(
                         JarScanner.class.getName(), getJarScanner());
@@ -5155,7 +5199,8 @@ public class StandardContext extends ContainerBase
             for (Map.Entry<ServletContainerInitializer, Set<Class<?>>> entry :
                 initializers.entrySet()) {
                 try {
-                    // 调用wapper的load
+                    //
+                    // 这里需要关注下 会方法会实例化可编程的servlet，filter等，也就是我们url对应的servlet 并且会调用servlet的init方法
                     entry.getKey().onStartup(entry.getValue(),
                             getServletContext());
                 } catch (ServletException e) {
@@ -5167,6 +5212,7 @@ public class StandardContext extends ContainerBase
 
             // Configure and call application event listeners
             if (ok) {
+                // 实例化各种监听器
                 if (!listenerStart()) {
                     log.error(sm.getString("standardContext.listenerFail"));
                     ok = false;
@@ -5177,11 +5223,13 @@ public class StandardContext extends ContainerBase
             // Needs to be after SCIs and listeners as they may programmatically
             // change constraints
             if (ok) {
+                // 检测未覆盖的http方法的安全约束
                 checkConstraintsForUncoveredMethods(findConstraints());
             }
 
             try {
                 // Start manager
+                // 启动会话管理器
                 Manager manager = getManager();
                 if (manager instanceof Lifecycle) {
                     ((Lifecycle) manager).start();
@@ -5193,6 +5241,7 @@ public class StandardContext extends ContainerBase
 
             // Configure and call application filters
             if (ok) {
+                // 实例化 filterconfig applicationFilterConfig ,filter 并且调用filter的init进行初始化
                 if (!filterStart()) {
                     log.error(sm.getString("standardContext.filterFail"));
                     ok = false;
@@ -5201,6 +5250,7 @@ public class StandardContext extends ContainerBase
 
             // Load and initialize all "load on startup" servlets
             if (ok) {
+                // 对于loadOnStartup>= 0 的wrapper调用wrapper的load 从而实例化servlet，并且调用servlet.init
                 if (!loadOnStartup(findChildren())){
                     log.error(sm.getString("standardContext.servletFail"));
                     ok = false;
@@ -6200,6 +6250,7 @@ public class StandardContext extends ContainerBase
 
     @Override
     protected void initInternal() throws LifecycleException {
+        // 核心是containeBase的操作
         super.initInternal();
 
         // Register the naming resources

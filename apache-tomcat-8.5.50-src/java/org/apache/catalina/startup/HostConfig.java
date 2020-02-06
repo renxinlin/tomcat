@@ -96,9 +96,17 @@ import org.apache.tomcat.util.res.StringManager;
  * hostconfig监听的standardHost的事件包括
  * START_EVENT      启动事件 涉及war部署 context 描述文件部署  文件夹部署...
  * PERIODIC_EVENT  定期事件   涉及war部署 ...
+ * ================
+ *  engine 维护后台任务处理线程 具体执行backgroundProcess [containerbase]处理
+ *  处理完毕发送PERIODIC_EVENT事件 hostconfig接收事件完成守护资源检测
+ *  从而重新加载后置或者重新部署资源并修改最后处理时间
+ *  redeployResources
+ *  reloadResources
+ * ================
  * STOP_EVENT
  */
 public class HostConfig implements LifecycleListener {
+    // 该类需要掌握的主要是部署【默认情况下】webapps下的web应用
 
     private static final Log log = LogFactory.getLog(HostConfig.class);
 
