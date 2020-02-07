@@ -58,6 +58,11 @@ import org.apache.tomcat.util.ExceptionUtils;
  * @author Remy Maucherat
  */
 @SuppressWarnings("deprecation")
+/**
+ * tomcat对外暴露的是ApplicationContextFacade
+ * 比如springboot结合tomcat和spring使用的就是
+ * ApplicationContextFacade而不是ApplicationContext
+ */
 public class ApplicationContextFacade implements org.apache.catalina.servlet4preview.ServletContext {
 
     // ---------------------------------------------------------- Attributes

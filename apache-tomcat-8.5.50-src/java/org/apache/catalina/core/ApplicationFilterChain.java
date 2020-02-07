@@ -167,6 +167,13 @@ public final class ApplicationFilterChain implements FilterChain {
         }
     }
 
+    /**
+     * 执行完过滤器在执行servlet
+     * @param request
+     * @param response
+     * @throws IOException
+     * @throws ServletException
+     */
     private void internalDoFilter(ServletRequest request,
                                   ServletResponse response)
         throws IOException, ServletException {
@@ -228,6 +235,7 @@ public final class ApplicationFilterChain implements FilterChain {
                                            args,
                                            principal);
             } else {
+                // 执行完过滤器执行servlet
                 servlet.service(request, response);
             }
         } catch (IOException | ServletException | RuntimeException e) {

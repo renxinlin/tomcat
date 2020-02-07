@@ -49,6 +49,12 @@ import javax.servlet.descriptor.JspConfigDescriptor;
  * @see Servlet#getServletConfig
  * @see ServletConfig#getServletContext
  */
+
+/**
+ * servlet 的上下文
+ * 存储了servlet的相关元数据等等
+ * 比如 contextpath
+ */
 public interface ServletContext {
 
     public static final String TEMPDIR = "javax.servlet.context.tempdir";

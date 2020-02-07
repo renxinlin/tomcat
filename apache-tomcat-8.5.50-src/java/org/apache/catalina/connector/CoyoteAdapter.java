@@ -295,11 +295,17 @@ public class CoyoteAdapter implements Adapter {
         return success;
     }
 
-
+    /**
+     *  通过coyoteAdapter.service完成请求的处理
+     * @param req The request object
+     * @param res The response object
+     *
+     * @throws Exception
+     */
     @Override
     public void service(org.apache.coyote.Request req, org.apache.coyote.Response res)
             throws Exception {
-
+        // 将coyote.Request转换成 connector.Request
         Request request = (Request) req.getNote(ADAPTER_NOTES);
         Response response = (Response) res.getNote(ADAPTER_NOTES);
 
@@ -335,7 +341,7 @@ public class CoyoteAdapter implements Adapter {
         try {
             // Parse and set Catalina and configuration specific
             // request parameters
-            // 在mapper中解析请求
+            // 请求映射:在mapper中解析请求
             postParseSuccess = postParseRequest(req, request, res, response);
             // 解析请求成功后
             if (postParseSuccess) {
@@ -344,7 +350,7 @@ public class CoyoteAdapter implements Adapter {
                         // getContainer其实就是engine 这里是一个链式组件结构
                         connector.getService().getContainer().getPipeline().isAsyncSupported());
                 // first valve1 valve2 basic 这是pipline的结构  getFirst是获取的valve1
-                // Calling the container getPipeline 说明每一个容器就是一个管道 Pipeline里面就是valve  这里的getFirst就是
+                // Calling the container getPipeline 说明每一个容器就是一个管道 Pipeline里面就是valve  这里的getFirst就是engine
                 connector.getService().getContainer().getPipeline().getFirst().invoke(
                         request, response);
             }
@@ -698,12 +704,14 @@ public class CoyoteAdapter implements Adapter {
 
         while (mapRequired) {
             // This will map the the latest version by default
+            // 根据mapper找到container
             connector.getService().getMapper().map(serverName, decodedURI,
                     version, request.getMappingData());
 
             // If there is no context at this point, either this is a 404
             // because no ROOT context has been deployed or the URI was invalid
             // so no context could be mapped.
+            // 没找到容器则报404
             if (request.getContext() == null) {
                 // Don't overwrite an existing error
                 if (!response.isError()) {
